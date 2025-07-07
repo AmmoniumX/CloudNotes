@@ -1,0 +1,50 @@
+# Build artifacts
+**/bin/
+**/obj/
+
+# Rider/VS Code/Visual Studio IDE settings
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+*.dll
+*.exe
+*.app
+*.log
+
+# NuGet
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+**/project.assets.json
+**/project.nuget.cache
+**/*.nuget.g.props
+**/*.nuget.g.targets
+**/*.nuget.dgspec.json
+
+# ASP.NET
+wwwroot/lib/
+
+# Logs
+*.log
+
+# Others
+*.tmp
+*.temp
+
+# PowerShell scripts output
+*.ps1~
+
+# OS-specific
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# wwwroot
+**/wwwroot/*

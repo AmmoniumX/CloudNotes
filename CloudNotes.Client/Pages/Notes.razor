@@ -1,0 +1,158 @@
+@page "/"
+@using CloudNotes.Shared.Models
+@inject HttpClient Http
+
+<h3>Notes</h3>
+
+@if (notes == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <button @onclick="ShowNewNoteForm">New Note</button>
+
+    @if (showNewNote)
+    {
+        <EditForm Model="newNote" OnValidSubmit="AddNote">
+            <InputText @bind-Value="newNote.Metadata.Title" placeholder="Title" /><br />
+            <InputTextArea @bind-Value="newNote.Content" placeholder="Content" /><br />
+            <button type="submit">Save</button>
+            <button type="button" @onclick="CancelNewNote">Cancel</button>
+        </EditForm>
+    }
+
+    <ul>
+        @foreach (var note in notes)
+        {
+            <li>
+                <strong>@note.Title</strong><br />
+
+                @if (expandedNotes.ContainsKey(note.Id))
+                {
+                    <p>@expandedNotes[note.Id]</p>
+                    <button @onclick="() => CollapseNote(note.Id)">Collapse</button>
+                }
+                else
+                {
+                    <p>@note.Summary</p>
+                    <small>@note.CreatedAt.ToLocalTime()</small><br />
+                    <button @onclick="() => ExpandNote(note.Id)">Expand</button>
+                }
+
+                <button @onclick="() => DeleteNote(note.Id)">Delete</button>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private List<NoteMetadata>? notes;
+    private Note newNote = new Note(); // Use parameterless constructor here
+    private Dictionary<Guid, string> expandedNotes = new Dictionary<Guid, string>(); // To store expanded content
+
+    private bool showNewNote = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadNotes();
+    }
+
+    private async Task LoadNotes()
+    {
+        notes = await Http.GetFromJsonAsync<List<NoteMetadata>>("api/notes");
+    }
+
+    private void ShowNewNoteForm()
+    {
+        newNote = new Note(); // Reset for new note
+        showNewNote = true;
+    }
+
+    private void CancelNewNote()
+    {
+        showNewNote = false;
+        newNote = new Note(); // Clear the form content
+    }
+
+    private async Task AddNote(EditContext editContext)
+    {
+        Console.WriteLine("Adding new note...");
+        // Ensure Metadata is not null before accessing its properties
+        if (newNote.Metadata == null)
+        {
+            newNote.Metadata = new NoteMetadata();
+        }
+
+        // Generate summary here on the client-side for immediate display,
+        // though the server should also handle this for persistence.
+        newNote.Metadata.Summary = newNote.Content.Length > 100 ? newNote.Content.Substring(0, 100) + "..." : newNote.Content;
+        newNote.Metadata.CreatedAt = DateTime.UtcNow; // Set creation time
+        newNote.Metadata.LastModified = DateTime.UtcNow; // Set modification time
+
+        var response = await Http.PostAsJsonAsync("api/notes", newNote);
+        if (response.IsSuccessStatusCode)
+        {
+            showNewNote = false;
+            newNote = new Note(); // Reset form
+            await LoadNotes(); // Reload notes to show the new one
+        }
+        else
+        {
+            Console.WriteLine($"Error adding note: {response.ReasonPhrase}");
+            // Handle error, e.g., display a message to the user
+        }
+    }
+
+    private async Task DeleteNote(Guid id)
+    {
+        var response = await Http.DeleteAsync($"api/notes/{id}");
+        if (response.IsSuccessStatusCode)
+        {
+            expandedNotes.Remove(id); // Remove from expanded list if deleted
+            await LoadNotes();
+        }
+    }
+
+    private async Task<string> GetNoteContents(Guid id)
+    {
+        var response = await Http.GetAsync($"api/notes/{id}/content");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadAsStringAsync();
+        }
+        else
+        {
+            // Log the error or throw a more specific exception
+            Console.WriteLine($"Error fetching note content for ID {id}: {response.ReasonPhrase}");
+            throw new Exception("Failed to load note contents.");
+        }
+    }
+
+    // New method to expand a note
+    private async Task ExpandNote(Guid id)
+    {
+        if (!expandedNotes.ContainsKey(id))
+        {
+            try
+            {
+                var fullContent = await GetNoteContents(id);
+                expandedNotes.Add(id, fullContent);
+            }
+            catch (Exception ex)
+            {
+                // Handle the error, e.g., show an alert to the user
+                Console.WriteLine($"Error expanding note: {ex.Message}");
+            }
+        }
+    }
+
+    // New method to collapse a note
+    private void CollapseNote(Guid id)
+    {
+        if (expandedNotes.ContainsKey(id))
+        {
+            expandedNotes.Remove(id);
+        }
+    }
+}
